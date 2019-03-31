@@ -60,7 +60,7 @@ void printOptions(int player){
       }
     }
     if(i == 13 && taken[player][11] && totals[player][11] == 50 &&
-        checkYahtzee()){
+        checkYahtzee() && !taken[player][13]){
         cout << i << ": " << bottomHalfStrings[i - 6] << endl;
     }
   }
@@ -169,7 +169,12 @@ void updateScores(int category, int player){
   while(category > 13 || taken[player][category]){
     cout << "That category isn't valid, try again" << endl;
     printOptions(player);
-    cin >> category;
+    category = -1;
+    do{
+      cin >> category;
+      cin.clear();
+      cin.ignore();
+    }while(category == -1);
   }
   switch(category){
     case 0: totals[player][category] = count(1);
@@ -305,12 +310,22 @@ void startGame(){
           cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "") << endl;
         }
         printOptions(player);
-        cin >> category;
+        category = -1;
+        do{
+          cin >> category;
+          cin.clear();
+          cin.ignore();
+        }while(category == -1);
         updateScores(category, player);
         cout << "Pass to player " << names[((player + 1) % players)] << endl;
         cout << "Enter 1 to see the scores and continue or any";
-        cout << " other number to just continue" << endl;
-        cin >> nextTurn;
+        cout << " other (non-zero) number to just continue" << endl;
+        nextTurn = 0;
+        do{
+          cin >> nextTurn;
+          cin.clear();
+          cin.ignore();
+        }while(nextTurn == 0);
         if(nextTurn == 1){
           scores();
         }
@@ -338,8 +353,13 @@ void startGame(){
 
 int main(int argc, char **argv){
   cout << "Welcome to my Yahtzee program" << endl;
-  cout << "Enter number of players, 4 max" << endl;
-  cin >> players;
+  players = 0;
+  do{
+    cout << "Enter number of players, 4 max" << endl;
+    cin >> players;
+    cin.clear();
+    cin.ignore();
+  }while(players == 0);
   for(int i = 0; i < players; i++){
     cout << "Enter the name of player " << i << endl;
     cin >> names[i];
