@@ -3,8 +3,11 @@
 #include <string>
 #include <cstdlib>
 #include <ctime>
+#include <stdio.h>
 
 using namespace std;
+char terminal_clearline[4];
+char terminal_moveup[4];
 
 int players;
 string names[4];
@@ -49,6 +52,8 @@ void roll(){
 }
 
 void printOptions(int player){
+  printf("%s", terminal_clearline);
+  cout << endl;
   cout << "Remaining categories for " << names[player] << endl;
   for(int i = 0; i < 14; i++){
     if(!taken[player][i] && i != 13){
@@ -279,33 +284,55 @@ void startGame(){
   do{
     do{
       for(int player = 0; player < players; player++){
+        printf("\033[2J");
+        printf("\033[%d;%dH", 0, 0);
+        if(nextTurn == 1){
+          scores();
+        }
+        printOptions(player);
+        cout << endl;
         cout << names[player] << "'s turn" << endl;
         for(int i = 0; i < 5; i++){
           values[i] = 0;
           hold[i] = false;
         }
+        cout << "Dice values: " << endl;
         for(int rolls = 0; rolls < 2; rolls++){
-          cout << "Dice values: " << endl;
+          if(rolls > 0){
+            for (int i = 0; i < 7; i++){
+              printf("%s", terminal_moveup);
+            }
+          }
           roll();
           for(int i = 0; i < 5; i++){
             cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "") << endl;
           }
           do{
             cout << "Enter a number to (un)hold or enter 5 to continue" << endl;
-            cin >> holdIndex;
-            cout << endl;
+            holdIndex = -1;
+            do{
+              cin >> holdIndex;
+              cin.clear();
+              cin.ignore();
+            }while(holdIndex == -1);
             if(holdIndex >= 5){
               break;
             }
+            for (int i = 0; i < 7; i++){
+              printf("%s", terminal_moveup);
+            }
             hold[holdIndex] = !hold[holdIndex];
             for(int i = 0; i < 5; i++){
-              cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "") << endl;
+              cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "      ") << endl;
             }
           }while(holdIndex < 5);
         }
-        cout << "Dice values: " << endl;
+        //cout << "Dice values: " << endl;
         roll();
-        cout << endl;
+        for (int i = 0; i < 7; i++){
+          printf("%s", terminal_moveup);
+        }
+        //cout << endl;
         for(int i = 0; i < 5; i++){
           cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "") << endl;
         }
@@ -317,7 +344,7 @@ void startGame(){
           cin.ignore();
         }while(category == -1);
         updateScores(category, player);
-        cout << "Pass to player " << names[((player + 1) % players)] << endl;
+        cout << "Pass to player " << names[player] << endl;
         cout << "Enter 1 to see the scores and continue or any";
         cout << " other (non-zero) number to just continue" << endl;
         nextTurn = 0;
@@ -326,11 +353,6 @@ void startGame(){
           cin.clear();
           cin.ignore();
         }while(nextTurn == 0);
-        if(nextTurn == 1){
-          scores();
-        }
-        printOptions((player + 1) % players);
-        cout << endl;
       }
       continueGame = false;
       for(int player = 0; player < players; player++){
@@ -352,6 +374,8 @@ void startGame(){
 }
 
 int main(int argc, char **argv){
+  sprintf(terminal_clearline, "%c[2K", 0x1B);
+  sprintf(terminal_moveup, "%c[1A", 0x1B);
   cout << "Welcome to my Yahtzee program" << endl;
   players = 0;
   do{
