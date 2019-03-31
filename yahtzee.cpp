@@ -7,6 +7,7 @@
 using namespace std;
 
 int players;
+string names[4];
 int values[5] = { 0 };
 bool hold[5] = {};
 int totals[4][14];
@@ -15,6 +16,8 @@ int topHalfTotal[4] = { 0 };
 const string bottomHalfStrings[8] = {"3 of a kind", "4 of a kind", "Full house",
 "Short Straight", "Long Straight", "Yahtzee", "Chance", "Yahtzee Bonus"};
 bool bonus = 0;
+
+bool checkYahtzee();
 
 bool isYes(string input){
   for(int i = 0; i < (int)input.length(); i++){
@@ -46,7 +49,7 @@ void roll(){
 }
 
 void printOptions(int player){
-  cout << "Remaining categories for player " << player << endl;
+  cout << "Remaining categories for " << names[player] << endl;
   for(int i = 0; i < 14; i++){
     if(!taken[player][i] && i != 13){
       if(i < 6){
@@ -56,7 +59,8 @@ void printOptions(int player){
         cout << i << ": " << bottomHalfStrings[i - 6] << endl;
       }
     }
-    if(i == 13 && taken[player][11] && values[11] == 50){
+    if(i == 13 && taken[player][11] && totals[player][11] == 50 &&
+        checkYahtzee()){
         cout << i << ": " << bottomHalfStrings[i - 6] << endl;
     }
   }
@@ -154,7 +158,7 @@ bool checkYahtzee(){
 }
 
 bool checkBonus(int player){
-  if(taken[player][11] && totals[player][11] == 50 && checkYahtzee){
+  if(taken[player][11] && totals[player][11] == 50 && checkYahtzee()){
     return true;
   }
   return false;
@@ -162,9 +166,8 @@ bool checkBonus(int player){
 
 void updateScores(int category, int player){
   int in;
-  while(taken[player][category]){
-    cout << "That category is taken you fuckwit" << endl;
-    cout << "Choose a new one" << endl;
+  while(category > 13 || taken[player][category]){
+    cout << "That category isn't valid, try again" << endl;
     printOptions(player);
     cin >> category;
   }
@@ -244,8 +247,22 @@ void endGame(){
     if(topHalfTotal[player] >= 63){
       grandTotal += 35;
     }
-    cout << "Player " << player << " scored " << grandTotal << endl;
+    cout << names[player] << " scored " << grandTotal << endl;
   }
+}
+
+void scores(){
+  cout << "Scores on the doors:" << endl;
+  for(int player = 0; player < players; player++){
+    cout << endl;
+    int grandTotal = 0;
+    for(int i = 0; i < 14; i++){
+      grandTotal += totals[player][i];
+    }
+    cout << names[player] << " has " << grandTotal << endl;
+    cout << "And has " << topHalfTotal[player] << "/63 for their bonus" << endl;
+  }
+  cout << endl;
 }
 
 void startGame(){
@@ -257,7 +274,7 @@ void startGame(){
   do{
     do{
       for(int player = 0; player < players; player++){
-        cout << "PLAYER " << player << "'s turn" << endl;
+        cout << names[player] << "'s turn" << endl;
         for(int i = 0; i < 5; i++){
           values[i] = 0;
           hold[i] = false;
@@ -290,21 +307,25 @@ void startGame(){
         printOptions(player);
         cin >> category;
         updateScores(category, player);
-        cout << "Pass to player " << ((player + 1) % players) << endl;
-        cout << "Enter 1 to print remaining categories and continue or any";
+        cout << "Pass to player " << names[((player + 1) % players)] << endl;
+        cout << "Enter 1 to see the scores and continue or any";
         cout << " other number to just continue" << endl;
         cin >> nextTurn;
         if(nextTurn == 1){
-          printOptions((player + 1) % players);
+          scores();
         }
+        printOptions((player + 1) % players);
         cout << endl;
-        continueGame = false;
+      }
+      continueGame = false;
+      for(int player = 0; player < players; player++){
         for(int i = 0; i < 13; i++){
           if(!taken[player][i]){
             continueGame = true;
           }
         }
-        if(taken[player][11] && totals[player][11] == 50){
+        if(taken[player][11] && totals[player][11] == 50 &&
+            !taken[player][13]){
           continueGame = true;
         }
       }
@@ -319,5 +340,10 @@ int main(int argc, char **argv){
   cout << "Welcome to my Yahtzee program" << endl;
   cout << "Enter number of players, 4 max" << endl;
   cin >> players;
+  for(int i = 0; i < players; i++){
+    cout << "Enter the name of player " << i << endl;
+    cin >> names[i];
+  }
+  cout << endl;
   startGame();
 }
