@@ -275,99 +275,107 @@ void scores(){
   cout << endl;
 }
 
-void startGame(){
-  string input;
+void takeTurn(int player){
   int nextTurn;
   int holdIndex;
   int category;
-  bool continueGame = true;
+  printf("\033[2J");
+  printf("\033[%d;%dH", 0, 0);
+  scores();
+  printOptions(player);
+  cout << endl;
+  cout << names[player] << "'s turn" << endl;
+  for(int i = 0; i < 5; i++){
+    values[i] = 0;
+    hold[i] = false;
+  }
+  cout << "Dice values: " << endl;
+  for(int rolls = 0; rolls < 2; rolls++){
+    if(rolls > 0){
+      for (int i = 0; i < 7; i++){
+        printf("%s", terminal_moveup);
+      }
+    }
+    roll();
+    for(int i = 0; i < 5; i++){
+      cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "") << endl;
+    }
+    do{
+      cout << "Enter a number to (un)hold or enter 5 to continue" << endl;
+      holdIndex = -1;
+      do{
+        cin >> holdIndex;
+        cin.clear();
+        cin.ignore();
+      }while(holdIndex == -1);
+      if(holdIndex >= 5){
+        break;
+      }
+      for (int i = 0; i < 7; i++){
+        printf("%s", terminal_moveup);
+      }
+      hold[holdIndex] = !hold[holdIndex];
+      for(int i = 0; i < 5; i++){
+        cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "      ") << endl;
+      }
+    }while(holdIndex < 5);
+  }
+  roll();
+  for (int i = 0; i < 7; i++){
+    printf("%s", terminal_moveup);
+  }
+  for(int i = 0; i < 5; i++){
+    cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "") << endl;
+  }
+  printOptions(player);
+  category = -1;
   do{
+    cin >> category;
+    cin.clear();
+    cin.ignore();
+  }while(category == -1);
+  updateScores(category, player);
+  cout << "Pass to " << names[(player + 1) % players] << endl;
+  cout << "Press Enter to continue" << endl;
+  //nextTurn = -1;
+  //do{
+  //  cin >> nextTurn;
+  //  cin.clear();
+  cin.ignore();
+  //}while(nextTurn == -1);
+}
+
+void startGame(){
+  string input;
+  bool continueGame[4];
+  bool loop = false;
+  do{
+    fill(continueGame, continueGame + 4, true);
     do{
       for(int player = 0; player < players; player++){
-        printf("\033[2J");
-        printf("\033[%d;%dH", 0, 0);
-        if(nextTurn == 1){
-          scores();
-        }
-        printOptions(player);
-        cout << endl;
-        cout << names[player] << "'s turn" << endl;
-        for(int i = 0; i < 5; i++){
-          values[i] = 0;
-          hold[i] = false;
-        }
-        cout << "Dice values: " << endl;
-        for(int rolls = 0; rolls < 2; rolls++){
-          if(rolls > 0){
-            for (int i = 0; i < 7; i++){
-              printf("%s", terminal_moveup);
+        if(continueGame[player]){
+          takeTurn(player);
+          continueGame[player] = false;
+          for(int i = 0; i < 13; i++){
+            if(!taken[player][i]){
+              continueGame[player] = true;
             }
           }
-          roll();
-          for(int i = 0; i < 5; i++){
-            cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "") << endl;
-          }
-          do{
-            cout << "Enter a number to (un)hold or enter 5 to continue" << endl;
-            holdIndex = -1;
-            do{
-              cin >> holdIndex;
-              cin.clear();
-              cin.ignore();
-            }while(holdIndex == -1);
-            if(holdIndex >= 5){
-              break;
-            }
-            for (int i = 0; i < 7; i++){
-              printf("%s", terminal_moveup);
-            }
-            hold[holdIndex] = !hold[holdIndex];
-            for(int i = 0; i < 5; i++){
-              cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "      ") << endl;
-            }
-          }while(holdIndex < 5);
         }
-        //cout << "Dice values: " << endl;
-        roll();
-        for (int i = 0; i < 7; i++){
-          printf("%s", terminal_moveup);
-        }
-        //cout << endl;
-        for(int i = 0; i < 5; i++){
-          cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "") << endl;
-        }
-        printOptions(player);
-        category = -1;
-        do{
-          cin >> category;
-          cin.clear();
-          cin.ignore();
-        }while(category == -1);
-        updateScores(category, player);
-        cout << "Pass to player " << names[player] << endl;
-        cout << "Enter 1 to see the scores and continue or any";
-        cout << " other (non-zero) number to just continue" << endl;
-        nextTurn = 0;
-        do{
-          cin >> nextTurn;
-          cin.clear();
-          cin.ignore();
-        }while(nextTurn == 0);
       }
-      continueGame = false;
+      loop = false;
       for(int player = 0; player < players; player++){
-        for(int i = 0; i < 13; i++){
-          if(!taken[player][i]){
-            continueGame = true;
-          }
-        }
-        if(taken[player][11] && totals[player][11] == 50 &&
-            !taken[player][13]){
-          continueGame = true;
-        }
+        loop = loop || continueGame[player];
       }
-    }while(continueGame);
+    }while(loop);
     endGame();
+    for(int player = 0; player < 4; player++){
+      for(int i = 0; i < 14; i++){
+        totals[player][i] = 0;
+        taken[player][i] = false;
+      }
+      topHalfTotal[player] = 0;
+    }
     cout << "Would you like to play again?" << endl;
     cin >> input;
   }while(isYes(input));
