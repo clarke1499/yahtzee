@@ -1,2 +1,2 @@
 yahtzee: yahtzee.cpp
-	g++ -g yahtzee.cpp -o yahtzee
+	g++ -g -lncurses yahtzee.cpp -o yahtzee

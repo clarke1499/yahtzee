@@ -4,40 +4,44 @@
 #include <cstdlib>
 #include <ctime>
 #include <stdio.h>
+#include <ncurses.h>
 
 using namespace std;
 char terminal_clearline[4];
 char terminal_moveup[4];
 
 int players;
-string names[4];
+char *names[4];
 int values[5] = { 0 };
 bool hold[5] = {};
 int totals[4][14];
 bool taken[4][14];
 int topHalfTotal[4] = { 0 };
-const string bottomHalfStrings[8] = {"3 of a kind", "4 of a kind", "Full house",
+const char *bottomHalfStrings[8] = {"3 of a kind", "4 of a kind", "Full house",
 "Short Straight", "Long Straight", "Yahtzee", "Chance", "Yahtzee Bonus"};
 bool bonus = 0;
+WINDOW *win;
 
 bool checkYahtzee();
 
-bool isYes(string input){
-  for(int i = 0; i < (int)input.length(); i++){
-    input.replace(i, 1, string(1, tolower(input[i])));
+bool isYes(char *input){
+  string inputStr(input);
+  for(int i = 0; i < (int)inputStr.length(); i++){
+    inputStr.replace(i, 1, string(1, tolower(inputStr[i])));
   }
-  if(!input.compare("yes") || input[0] == 'y' ||
-     !input.compare("correct"))
+  if(!inputStr.compare("yes") || inputStr[0] == 'y' ||
+     !inputStr.compare("correct"))
     return true;
   return false;
 }
 
-bool isNo(string input){
-  for(int i = 0; i < input.length(); i++){
-    input.replace(i, 1, string(1, tolower(input[i])));
+bool isNo(char *input){
+  string inputStr(input);
+  for(int i = 0; i < inputStr.length(); i++){
+    inputStr.replace(i, 1, string(1, tolower(inputStr[i])));
   }
-  if(!input.compare("no") || input[0] == 'n' ||
-     !input.compare("incorrect"))
+  if(!inputStr.compare("no") || inputStr[0] == 'n' ||
+     !inputStr.compare("incorrect"))
     return true;
   return false;
 }
@@ -52,23 +56,29 @@ void roll(){
 }
 
 void printOptions(int player){
-  printf("%s", terminal_clearline);
-  cout << endl;
-  cout << "Remaining categories for " << names[player] << endl;
+  //printf("%s", terminal_clearline);
+  //cout << endl;
+  wprintw(win, "\n");
+  //cout << "Remaining categories for " << names[player] << endl;
+  wprintw(win, "Remaining categories for %s\n", names[player]);
   for(int i = 0; i < 14; i++){
     if(!taken[player][i] && i != 13){
       if(i < 6){
-        cout << i << ": " << i + 1 << "s" << endl;
+        //cout << i << ": " << i + 1 << "s" << endl;
+        wprintw(win, "%d: %ds\n", i, i + 1);
       }
       else{
-        cout << i << ": " << bottomHalfStrings[i - 6] << endl;
+        //cout << i << ": " << bottomHalfStrings[i - 6] << endl;
+        wprintw(win, "%d: %s\n", i, bottomHalfStrings[i - 6]);
       }
     }
     if(i == 13 && taken[player][11] && totals[player][11] == 50 &&
         checkYahtzee() && !taken[player][13]){
-        cout << i << ": " << bottomHalfStrings[i - 6] << endl;
+        wprintw(win, "%d: %s\n", i, bottomHalfStrings[i - 6]);
+        //cout << i << ": " << bottomHalfStrings[i - 6] << endl;
     }
   }
+  wrefresh(win);
 }
 
 int count(int diceValue){
@@ -170,15 +180,16 @@ bool checkBonus(int player){
 }
 
 void updateScores(int category, int player){
-  int in;
   while(category > 13 || taken[player][category]){
-    cout << "That category isn't valid, try again" << endl;
+    wprintw(win, "That category isn't valid, try again\n");
+    wrefresh(win);
     printOptions(player);
     category = -1;
     do{
-      cin >> category;
-      cin.clear();
-      cin.ignore();
+      char *categoryInput = (char *) malloc(sizeof(char) * 5);
+      wgetstr(win, categoryInput);
+      category = strtol(categoryInput, NULL, 10);
+      free(categoryInput);
     }while(category == -1);
   }
   switch(category){
@@ -245,7 +256,9 @@ void updateScores(int category, int player){
              taken[player][category] = true;
              break;
   }
-  cout << "Score recorded = " << totals[player][category] << endl;
+  //cout << "Score recorded = " << totals[player][category] << endl;
+  wprintw(win, "Score recorded = %d\n", totals[player][category]);
+  wrefresh(win);
 }
 
 void endGame(){
@@ -257,99 +270,123 @@ void endGame(){
     if(topHalfTotal[player] >= 63){
       grandTotal += 35;
     }
-    cout << names[player] << " scored " << grandTotal << endl;
+    wprintw(win, "%s scored %d\n", grandTotal);
+    wrefresh(win);
   }
 }
 
 void scores(){
-  cout << "Scores on the doors:" << endl;
+  //cout << "Scores on the doors:" << endl;
+  wprintw(win, "Scores on the doors:\n");
   for(int player = 0; player < players; player++){
-    cout << endl;
+    //cout << endl;
+    wprintw(win, "\n");
     int grandTotal = 0;
     for(int i = 0; i < 14; i++){
       grandTotal += totals[player][i];
     }
-    cout << names[player] << " has " << grandTotal << endl;
-    cout << "And has " << topHalfTotal[player] << "/63 for their bonus" << endl;
+    //cout << names[player] << " has " << grandTotal << endl;
+    //cout << "And has " << topHalfTotal[player] << "/63 for their bonus" << endl;
+    wprintw(win, "%s has %d\n", names[player], grandTotal);
+    wprintw(win, "And has %d/63 for their bonus\n", topHalfTotal[player]);
   }
-  cout << endl;
+  wprintw(win, "\n");
+  wrefresh(win);
 }
 
 void takeTurn(int player){
   int nextTurn;
   int holdIndex;
   int category;
-  printf("\033[2J");
-  printf("\033[%d;%dH", 0, 0);
+  wclear(win);
+  wrefresh(win);
   scores();
   printOptions(player);
-  cout << endl;
-  cout << names[player] << "'s turn" << endl;
+  wprintw(win, "\n%s's turn\n", names[player]);
+  wrefresh(win);
   for(int i = 0; i < 5; i++){
     values[i] = 0;
     hold[i] = false;
   }
-  cout << "Dice values: " << endl;
+  wprintw(win, "Dice values:\n");
+  wrefresh(win);
+  int y, x;
+  getyx(win, y, x);
+  WINDOW *diceWin = newwin(6, 80, y + 1, x);
   for(int rolls = 0; rolls < 2; rolls++){
-    if(rolls > 0){
-      for (int i = 0; i < 7; i++){
-        printf("%s", terminal_moveup);
-      }
-    }
+    wclear(diceWin);
+    wrefresh(diceWin);
     roll();
     for(int i = 0; i < 5; i++){
-      cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "") << endl;
+      wprintw(diceWin, "%d: %d", i, values[i]);
+      if(hold[i]){
+        wprintw(diceWin, ", Hold");
+      }
+      wprintw(diceWin, "\n");
     }
+    wrefresh(diceWin);
     do{
-      cout << "Enter a number to (un)hold or enter 5 to continue" << endl;
+      wprintw(diceWin, "Enter a number to (un)hold or enter 5 to continue\n");
+      wrefresh(diceWin);
       holdIndex = -1;
       do{
-        cin >> holdIndex;
-        cin.clear();
-        cin.ignore();
+        holdIndex = getch();
       }while(holdIndex == -1);
+      holdIndex -= 48;
       if(holdIndex >= 5){
         break;
       }
-      for (int i = 0; i < 7; i++){
-        printf("%s", terminal_moveup);
-      }
       hold[holdIndex] = !hold[holdIndex];
+      wclear(diceWin);
+      wrefresh(diceWin);
       for(int i = 0; i < 5; i++){
-        cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "      ") << endl;
+        wprintw(diceWin, "%d: %d", i, values[i]);
+        if(hold[i]){
+          wprintw(diceWin, ", Hold");
+        }
+        wprintw(diceWin, "\n");
       }
+      wrefresh(diceWin);
     }while(holdIndex < 5);
   }
   roll();
-  for (int i = 0; i < 7; i++){
-    printf("%s", terminal_moveup);
-  }
+  wclear(diceWin);
+  wrefresh(diceWin);
   for(int i = 0; i < 5; i++){
-    cout << i << ": " << values[i] << (hold[i] ? ", Hold" : "") << endl;
+    wprintw(diceWin, "%d: %d", i, values[i]);
+    if(hold[i]){
+      wprintw(diceWin, ", Hold");
+    }
+    wprintw(diceWin, "\n");
   }
+  wrefresh(diceWin);
+  delwin(diceWin);
+  wmove(win, y + 6, x);
   printOptions(player);
+  nocbreak();
+  echo();
   category = -1;
   do{
-    cin >> category;
-    cin.clear();
-    cin.ignore();
+    char *categoryInput = (char *) malloc(sizeof(char) * 5);
+    wgetstr(win, categoryInput);
+    category = strtol(categoryInput, NULL, 10);
+    free(categoryInput);
   }while(category == -1);
   updateScores(category, player);
-  cout << "Pass to " << names[(player + 1) % players] << endl;
-  cout << "Press Enter to continue" << endl;
-  //nextTurn = -1;
-  //do{
-  //  cin >> nextTurn;
-  //  cin.clear();
-  cin.ignore();
-  //}while(nextTurn == -1);
+  wprintw(win, "Pass to %s\n", names[(player + 1) % players]);
+  wprintw(win, "Press Enter to continue\n");
+  wrefresh(win);
+  noecho();
+  cbreak();
+  getch();
 }
 
 void startGame(){
-  string input;
+  char *input = NULL;
   bool continueGame[4];
   bool loop = false;
   do{
+    free(input);
     fill(continueGame, continueGame + 4, true);
     do{
       for(int player = 0; player < players; player++){
@@ -376,26 +413,49 @@ void startGame(){
       }
       topHalfTotal[player] = 0;
     }
-    cout << "Would you like to play again?" << endl;
-    cin >> input;
+    nocbreak();
+    echo();
+    input = (char *) malloc(80 * sizeof(char));
+    wgetstr(win, input);
+    noecho();
+    cbreak();
   }while(isYes(input));
+  free(input);
 }
 
 int main(int argc, char **argv){
-  sprintf(terminal_clearline, "%c[2K", 0x1B);
-  sprintf(terminal_moveup, "%c[1A", 0x1B);
-  cout << "Welcome to my Yahtzee program" << endl;
+  initscr();
+  cbreak();
+  noecho();
+  clear();
+  refresh();
+  int h, w;
+  getmaxyx(stdscr, h, w);
+  win = newwin(h, w, 0, 0);
   players = 0;
   do{
-    cout << "Enter number of players, 4 max" << endl;
-    cin >> players;
-    cin.clear();
-    cin.ignore();
-  }while(players == 0);
+    wclear(win);
+    wrefresh(win);
+    waddstr(win, "Welcome to my Yahtzee program\n");
+    waddstr(win, "Enter number of players, 4 max\n");
+    wrefresh(win);
+    players = getch();
+  }while(players < 49 || players > 52);
+  players -= 48;
   for(int i = 0; i < players; i++){
-    cout << "Enter the name of player " << i << endl;
-    cin >> names[i];
+    wprintw(win, "Enter name of player %d\n", i);
+    wrefresh(win);
+    nocbreak();
+    echo();
+    names[i] = (char *) malloc(sizeof(char) * 80);
+    wgetstr(win, names[i]);
   }
-  cout << endl;
+  noecho();
+  cbreak();
   startGame();
+  delwin(win);
+  endwin();
+  for(int i = 0; i < players; i++){
+    free(names[i]);
+  }
 }
