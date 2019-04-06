@@ -5,10 +5,9 @@
 #include <ctime>
 #include <stdio.h>
 #include <ncurses.h>
+#include <csignal>
 
 using namespace std;
-char terminal_clearline[4];
-char terminal_moveup[4];
 
 int players;
 char *names[4];
@@ -23,6 +22,22 @@ bool bonus = 0;
 WINDOW *win;
 
 bool checkYahtzee();
+
+void resizeHandle(int signum){
+  int h, w;
+  getmaxyx(stdscr, h, w);
+  wresize(win, h, w);
+  wrefresh(win);
+}
+
+void sigIntHandle(int signum){
+  for(int i = 0; i < players; i++){
+    free(names[i]);
+  }
+  delwin(win);
+  endwin();
+  exit(signum);
+}
 
 bool isYes(char *input){
   string inputStr(input);
@@ -270,13 +285,12 @@ void endGame(){
     if(topHalfTotal[player] >= 63){
       grandTotal += 35;
     }
-    wprintw(win, "%s scored %d\n", grandTotal);
+    wprintw(win, "%s scored %d\n", names[player], grandTotal);
     wrefresh(win);
   }
 }
 
 void scores(){
-  //cout << "Scores on the doors:" << endl;
   wprintw(win, "Scores on the doors:\n");
   for(int player = 0; player < players; player++){
     //cout << endl;
@@ -285,8 +299,6 @@ void scores(){
     for(int i = 0; i < 14; i++){
       grandTotal += totals[player][i];
     }
-    //cout << names[player] << " has " << grandTotal << endl;
-    //cout << "And has " << topHalfTotal[player] << "/63 for their bonus" << endl;
     wprintw(win, "%s has %d\n", names[player], grandTotal);
     wprintw(win, "And has %d/63 for their bonus\n", topHalfTotal[player]);
   }
@@ -413,6 +425,8 @@ void startGame(){
       }
       topHalfTotal[player] = 0;
     }
+    wprintw(win, "Would you like to play again? (y/n)\n");
+    wrefresh(win);
     nocbreak();
     echo();
     input = (char *) malloc(80 * sizeof(char));
@@ -424,6 +438,8 @@ void startGame(){
 }
 
 int main(int argc, char **argv){
+  signal(SIGINT, sigIntHandle);
+  signal(SIGWINCH, resizeHandle);
   initscr();
   cbreak();
   noecho();
