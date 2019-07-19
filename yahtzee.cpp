@@ -71,26 +71,20 @@ void roll(){
 }
 
 void printOptions(int player){
-  //printf("%s", terminal_clearline);
-  //cout << endl;
   wprintw(win, "\n");
-  //cout << "Remaining categories for " << names[player] << endl;
   wprintw(win, "Remaining categories for %s\n", names[player]);
   for(int i = 0; i < 14; i++){
     if(!taken[player][i] && i != 13){
       if(i < 6){
-        //cout << i << ": " << i + 1 << "s" << endl;
         wprintw(win, "%d: %ds\n", i, i + 1);
       }
       else{
-        //cout << i << ": " << bottomHalfStrings[i - 6] << endl;
         wprintw(win, "%d: %s\n", i, bottomHalfStrings[i - 6]);
       }
     }
     if(i == 13 && taken[player][11] && totals[player][11] == 50 &&
         checkYahtzee() && !taken[player][13]){
         wprintw(win, "%d: %s\n", i, bottomHalfStrings[i - 6]);
-        //cout << i << ": " << bottomHalfStrings[i - 6] << endl;
     }
   }
   wrefresh(win);
@@ -271,7 +265,6 @@ void updateScores(int category, int player){
              taken[player][category] = true;
              break;
   }
-  //cout << "Score recorded = " << totals[player][category] << endl;
   wprintw(win, "Score recorded = %d\n", totals[player][category]);
   wrefresh(win);
 }
@@ -293,7 +286,6 @@ void endGame(){
 void scores(){
   wprintw(win, "Scores on the doors:\n");
   for(int player = 0; player < players; player++){
-    //cout << endl;
     wprintw(win, "\n");
     int grandTotal = 0;
     for(int i = 0; i < 14; i++){
