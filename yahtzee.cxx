@@ -1,3 +1,4 @@
+#include "Dice.hxx"
 #include <iostream>
 #include <cctype>
 #include <string>
@@ -7,16 +8,18 @@
 #include <ncurses.h>
 #include <csignal>
 
+
 using namespace std;
 
 int players;
 char *names[4];
-int values[5] = { 0 };
-bool hold[5] = {};
+vector<Dice> dice(5);
+//int values[5] = { 0 };
+//bool hold[5] = {};
 int totals[4][14];
 bool taken[4][14];
 int topHalfTotal[4] = { 0 };
-const char *bottomHalfStrings[8] = {"3 of a kind", "4 of a kind", "Full house",
+static const char *bottomHalfStrings[8] = {"3 of a kind", "4 of a kind", "Full house",
 "Short Straight", "Long Straight", "Yahtzee", "Chance", "Yahtzee Bonus"};
 bool bonus = 0;
 WINDOW *win;
@@ -88,14 +91,14 @@ bool isNo(char *input){
   return false;
 }
 
-void roll(){
-  srand(time(0));
-  for(int i = 0; i < 5; i++){
-    if(!hold[i]){
-      values[i] = (rand() % 6 + 1);
-    }
-  }
-}
+//void roll(){
+//  srand(time(0));
+//  for(int i = 0; i < 5; i++){
+//    if(!hold[i]){
+//      values[i] = (rand() % 6 + 1);
+//    }
+//  }
+//}
 
 void printOptions(int player){
   wmove(categoriesWins[player], 0, 0);
@@ -122,7 +125,7 @@ void printOptions(int player){
 int count(int diceValue){
   int total = 0;
   for(int i = 0; i < 5; i++){
-    if(values[i] == diceValue){
+    if(dice[i] == diceValue){
       total += diceValue;
     }
   }
@@ -132,7 +135,7 @@ int count(int diceValue){
 int count(){
   int total = 0;
   for(int i = 0; i < 5; i++){
-    total += values[i];
+    total += dice[i].getValue();
   }
   return total;
 }
@@ -140,7 +143,7 @@ int count(){
 bool checkThree(){
   int num[6] = { 0 };
   for(int i = 0; i < 5; i++){
-    if(++num[values[i] - 1] == 3){
+    if(++num[dice[i].getValue() - 1] == 3){
       return true;
     }
   }
@@ -150,7 +153,7 @@ bool checkThree(){
 bool checkFour(){
   int num[6] = { 0 };
   for(int i = 0; i < 5; i++){
-    if(++num[values[i] - 1] == 4){
+    if(++num[dice[i].getValue() - 1] == 4){
       return true;
     }
   }
@@ -162,7 +165,7 @@ bool checkFull(){
   bool two, three;
   two = three = false;
   for(int i = 0; i < 5; i++){
-    num[values[i] - 1]++;
+    num[dice[i].getValue() - 1]++;
   }
   for(int i = 0; i < 6; i++){
     if(num[i] == 2){
@@ -182,7 +185,7 @@ bool checkStraight(int target){
   int num[6] = { 0 };
   int inARow = 0;
   for(int i = 0; i < 5; i++){
-    num[values[i] - 1]++;
+    num[dice[i].getValue() - 1]++;
   }
   for(int i = 0; i < 6; i++){
     if(num[i] > 2){
@@ -201,12 +204,12 @@ bool checkStraight(int target){
 }
 
 bool checkYahtzee(){
-  if(values[0] == 0){
+  if(dice[0].getValue() == 0){
     return false;
   }
   int num[6] = { 0 };
   for(int i = 0; i < 5; i++){
-    if(++num[values[i] - 1] == 5){
+    if(++num[dice[i].getValue() - 1] == 5){
       return true;
     }
   }
@@ -341,8 +344,9 @@ void takeTurn(int player){
   wprintw(win, "%s's turn\n", names[player]);
   wrefresh(win);
   for(int i = 0; i < 5; i++){
-    values[i] = 0;
-    hold[i] = false;
+    if(dice[i].getHold()){
+      dice[i].toggleHold();
+    }
   }
   wprintw(win, "Dice values:\n");
   wrefresh(win);
@@ -353,10 +357,12 @@ void takeTurn(int player){
     wmove(diceWin, 0, 0);
     wrefresh(diceWin);
     wprintw(diceWin, "Roll %d\n", rolls + 1);
-    roll();
     for(int i = 0; i < 5; i++){
-      wprintw(diceWin, "%d: %d", i + 1, values[i]);
-      if(hold[i]){
+      dice[i].roll();
+    }
+    for(int i = 0; i < 5; i++){
+      wprintw(diceWin, "%d: %d", i + 1, dice[i].getValue());
+      if(dice[i].getHold()){
         wprintw(diceWin, ", Hold");
       }
       wprintw(diceWin, "\n");
@@ -373,12 +379,12 @@ void takeTurn(int player){
       if(holdIndex >= 5){
         break;
       }
-      hold[holdIndex] = !hold[holdIndex];
+      dice[holdIndex].toggleHold();
       wmove(diceWin, 1, 0);
       wrefresh(diceWin);
       for(int i = 0; i < 5; i++){
-        wprintw(diceWin, "%d: %d", i + 1, values[i]);
-        if(hold[i]){
+        wprintw(diceWin, "%d: %d", i + 1, dice[i].getValue());
+        if(dice[i].getHold()){
           wprintw(diceWin, ", Hold");
         }
         wprintw(diceWin, "\n");
@@ -386,13 +392,15 @@ void takeTurn(int player){
       wrefresh(diceWin);
     }while(holdIndex < 6);
   }
-  roll();
+  for(int i = 0; i < 5; i++){
+    dice[i].roll();
+  }
   wmove(diceWin, 0, 0);
   wrefresh(diceWin);
   wprintw(diceWin, "Roll 3\n");
   for(int i = 0; i < 5; i++){
-    wprintw(diceWin, "%d: %d", i + 1, values[i]);
-    if(hold[i]){
+    wprintw(diceWin, "%d: %d", i + 1, dice[i].getValue());
+    if(dice[i].getHold()){
       wprintw(diceWin, ", Hold");
     }
     wprintw(diceWin, "\n");
@@ -414,7 +422,7 @@ void takeTurn(int player){
   updateScores(category, player);
   scores();
   for(int i = 0; i < 5; i++){
-    values[i] = 0;
+    dice[i].setValue(0);
   }
   printOptions(player);
   if(players > 1){
@@ -428,6 +436,9 @@ void takeTurn(int player){
 }
 
 void startGame(){
+  for(int i = 0; i < 5; i++){
+    dice[i].roll();
+  }
   char *input = NULL;
   bool continueGame[4];
   bool loop = false;

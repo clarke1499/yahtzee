@@ -1,3 +1,4 @@
 yahtzee
 .*
 peda-session-*
+*.o
