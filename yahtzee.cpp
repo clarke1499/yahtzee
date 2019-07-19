@@ -20,22 +20,49 @@ const char *bottomHalfStrings[8] = {"3 of a kind", "4 of a kind", "Full house",
 "Short Straight", "Long Straight", "Yahtzee", "Chance", "Yahtzee Bonus"};
 bool bonus = 0;
 WINDOW *win;
+WINDOW *scoresWin;
+WINDOW *categoriesWins[4];
 
 bool checkYahtzee();
 
 void resizeHandle(int signum){
   int h, w;
   getmaxyx(stdscr, h, w);
-  wresize(win, h, w);
+  resizeterm(h, w);
+  refresh();
+  wresize(win, h, w / 2);
   wrefresh(win);
+
+  wresize(scoresWin, players * 3 + 1, w - 58);
+  wrefresh(scoresWin);
+  int categoriesWinHeight, categoriesWinWidth;
+  switch(players){
+    case 1: categoriesWinHeight = h - 4;
+            categoriesWinWidth = w - 58;
+            break;
+    case 2: categoriesWinHeight = h - 7;
+            categoriesWinWidth = (w - 58) / 2;
+            break;
+    case 3: categoriesWinHeight = (h - 10) / 2;
+            categoriesWinWidth = (w - 58) / 2;
+            break;
+    case 4: categoriesWinHeight = (h - 13) / 2;
+            categoriesWinWidth = (w - 58) / 2;
+  }
+  for(int i = 0; i < players; i++){
+    wresize(categoriesWins[i], categoriesWinHeight, categoriesWinWidth);
+    wrefresh(categoriesWins[i]);
+  }
 }
 
 void sigIntHandle(int signum){
   for(int i = 0; i < players; i++){
     free(names[i]);
+    delwin(categoriesWins[i]);
   }
   delwin(win);
   endwin();
+  //_nc_free_and_exit(signum);
   exit(signum);
 }
 
@@ -71,23 +98,25 @@ void roll(){
 }
 
 void printOptions(int player){
-  wprintw(win, "\n");
-  wprintw(win, "Remaining categories for %s\n", names[player]);
+  wmove(categoriesWins[player], 0, 0);
+  wprintw(categoriesWins[player], "\n");
+  wprintw(categoriesWins[player], "Remaining categories for %s\n", names[player]);
   for(int i = 0; i < 14; i++){
     if(!taken[player][i] && i != 13){
       if(i < 6){
-        wprintw(win, "%d: %ds\n", i, i + 1);
+        wprintw(categoriesWins[player], "%d: %ds\n", i + 1, i + 1);
       }
       else{
-        wprintw(win, "%d: %s\n", i, bottomHalfStrings[i - 6]);
+        wprintw(categoriesWins[player], "%d: %s\n", i + 1, bottomHalfStrings[i - 6]);
       }
     }
     if(i == 13 && taken[player][11] && totals[player][11] == 50 &&
         checkYahtzee() && !taken[player][13]){
-        wprintw(win, "%d: %s\n", i, bottomHalfStrings[i - 6]);
+        wprintw(categoriesWins[player], "%d: %s\n", i + 1, bottomHalfStrings[i - 6]);
     }
   }
-  wrefresh(win);
+  wclrtobot(categoriesWins[player]);
+  wrefresh(categoriesWins[player]);
 }
 
 int count(int diceValue){
@@ -172,6 +201,9 @@ bool checkStraight(int target){
 }
 
 bool checkYahtzee(){
+  if(values[0] == 0){
+    return false;
+  }
   int num[6] = { 0 };
   for(int i = 0; i < 5; i++){
     if(++num[values[i] - 1] == 5){
@@ -189,7 +221,7 @@ bool checkBonus(int player){
 }
 
 void updateScores(int category, int player){
-  while(category > 13 || taken[player][category]){
+  while(category > 14 || taken[player][category - 1]){
     wprintw(win, "That category isn't valid, try again\n");
     wrefresh(win);
     printOptions(player);
@@ -199,8 +231,9 @@ void updateScores(int category, int player){
       wgetstr(win, categoryInput);
       category = strtol(categoryInput, NULL, 10);
       free(categoryInput);
-    }while(category == -1);
+    }while(category == -1 || category > 14 || category < 1);
   }
+  category--;
   switch(category){
     case 0: totals[player][category] = count(1);
             taken[player][category] = true;
@@ -284,18 +317,19 @@ void endGame(){
 }
 
 void scores(){
-  wprintw(win, "Scores on the doors:\n");
+  wclear(scoresWin);
+  wprintw(scoresWin, "Scores on the doors:\n");
   for(int player = 0; player < players; player++){
-    wprintw(win, "\n");
+    wprintw(scoresWin, "\n");
     int grandTotal = 0;
     for(int i = 0; i < 14; i++){
       grandTotal += totals[player][i];
     }
-    wprintw(win, "%s has %d\n", names[player], grandTotal);
-    wprintw(win, "And has %d/63 for their bonus\n", topHalfTotal[player]);
+    wprintw(scoresWin, "%s has %d\n", names[player], grandTotal);
+    wprintw(scoresWin, "And has %d/63 for their bonus\n", topHalfTotal[player]);
   }
-  wprintw(win, "\n");
-  wrefresh(win);
+  wprintw(scoresWin, "\n");
+  wrefresh(scoresWin);
 }
 
 void takeTurn(int player){
@@ -304,9 +338,7 @@ void takeTurn(int player){
   int category;
   wclear(win);
   wrefresh(win);
-  scores();
-  printOptions(player);
-  wprintw(win, "\n%s's turn\n", names[player]);
+  wprintw(win, "%s's turn\n", names[player]);
   wrefresh(win);
   for(int i = 0; i < 5; i++){
     values[i] = 0;
@@ -316,13 +348,14 @@ void takeTurn(int player){
   wrefresh(win);
   int y, x;
   getyx(win, y, x);
-  WINDOW *diceWin = newwin(6, 80, y + 1, x);
+  WINDOW *diceWin = newwin(7, 50, y + 1, x);
   for(int rolls = 0; rolls < 2; rolls++){
-    wclear(diceWin);
+    wmove(diceWin, 0, 0);
     wrefresh(diceWin);
+    wprintw(diceWin, "Roll %d\n", rolls + 1);
     roll();
     for(int i = 0; i < 5; i++){
-      wprintw(diceWin, "%d: %d", i, values[i]);
+      wprintw(diceWin, "%d: %d", i + 1, values[i]);
       if(hold[i]){
         wprintw(diceWin, ", Hold");
       }
@@ -330,34 +363,35 @@ void takeTurn(int player){
     }
     wrefresh(diceWin);
     do{
-      wprintw(diceWin, "Enter a number to (un)hold or enter 5 to continue\n");
+      wprintw(diceWin, "Enter a number to (un)hold or enter 6 to continue");
       wrefresh(diceWin);
       holdIndex = -1;
       do{
         holdIndex = getch();
-      }while(holdIndex == -1);
-      holdIndex -= 48;
+      }while(holdIndex == -1 || holdIndex < 49 || holdIndex > 58);
+      holdIndex -= 49;
       if(holdIndex >= 5){
         break;
       }
       hold[holdIndex] = !hold[holdIndex];
-      wclear(diceWin);
+      wmove(diceWin, 1, 0);
       wrefresh(diceWin);
       for(int i = 0; i < 5; i++){
-        wprintw(diceWin, "%d: %d", i, values[i]);
+        wprintw(diceWin, "%d: %d", i + 1, values[i]);
         if(hold[i]){
           wprintw(diceWin, ", Hold");
         }
         wprintw(diceWin, "\n");
       }
       wrefresh(diceWin);
-    }while(holdIndex < 5);
+    }while(holdIndex < 6);
   }
   roll();
-  wclear(diceWin);
+  wmove(diceWin, 0, 0);
   wrefresh(diceWin);
+  wprintw(diceWin, "Roll 3\n");
   for(int i = 0; i < 5; i++){
-    wprintw(diceWin, "%d: %d", i, values[i]);
+    wprintw(diceWin, "%d: %d", i + 1, values[i]);
     if(hold[i]){
       wprintw(diceWin, ", Hold");
     }
@@ -365,19 +399,27 @@ void takeTurn(int player){
   }
   wrefresh(diceWin);
   delwin(diceWin);
-  wmove(win, y + 6, x);
-  printOptions(player);
+  wmove(win, y + 7, 0);
   nocbreak();
   echo();
+  printOptions(player);
+  wprintw(win, "\nSelect a category from your list to the right\n");
   category = -1;
   do{
     char *categoryInput = (char *) malloc(sizeof(char) * 5);
     wgetstr(win, categoryInput);
     category = strtol(categoryInput, NULL, 10);
     free(categoryInput);
-  }while(category == -1);
+  }while(category == -1 || category > 14 || category < 1);
   updateScores(category, player);
-  wprintw(win, "Pass to %s\n", names[(player + 1) % players]);
+  scores();
+  for(int i = 0; i < 5; i++){
+    values[i] = 0;
+  }
+  printOptions(player);
+  if(players > 1){
+    wprintw(win, "Pass to %s\n", names[(player + 1) % players]);
+  }
   wprintw(win, "Press Enter to continue\n");
   wrefresh(win);
   noecho();
@@ -392,6 +434,10 @@ void startGame(){
   do{
     free(input);
     fill(continueGame, continueGame + 4, true);
+    scores();
+    for(int i = 0; i < players; i++){
+      printOptions(i);
+    }
     do{
       for(int player = 0; player < players; player++){
         if(continueGame[player]){
@@ -439,7 +485,7 @@ int main(int argc, char **argv){
   refresh();
   int h, w;
   getmaxyx(stdscr, h, w);
-  win = newwin(h, w, 0, 0);
+  win = newwin(h, 55, 0, 0);
   players = 0;
   do{
     wclear(win);
@@ -450,8 +496,41 @@ int main(int argc, char **argv){
     players = getch();
   }while(players < 49 || players > 52);
   players -= 48;
+
+  scoresWin = newwin(players * 3 + 1, w - 55, 0, 55);
+  int categoriesWinHeight, categoriesWinWidth;
+  switch(players){
+    case 1: categoriesWinHeight = h - 4;
+            categoriesWinWidth = w - 55;
+            break;
+    case 2: categoriesWinHeight = h - 7;
+            categoriesWinWidth = (w - 55) / 2;
+            break;
+    case 3: categoriesWinHeight = (h - 10) / 2;
+            categoriesWinWidth = (w - 55) / 2;
+            break;
+    case 4: categoriesWinHeight = (h - 13) / 2;
+            categoriesWinWidth = (w - 55) / 2;
+  }
   for(int i = 0; i < players; i++){
-    wprintw(win, "Enter name of player %d\n", i);
+    switch(i){
+      case 0: categoriesWins[i] = newwin(categoriesWinHeight,
+                  categoriesWinWidth, players * 3 + 1, 55);
+              break;
+      case 1: categoriesWins[i] = newwin(categoriesWinHeight,
+                  categoriesWinWidth, players * 3 + 1,
+                  55 + categoriesWinWidth);
+              break;
+      case 2: categoriesWins[i] = newwin(categoriesWinHeight,
+                  categoriesWinWidth, (players * 3 + 1) + categoriesWinHeight,
+                  55);
+              break;
+      case 3: categoriesWins[i] = newwin(categoriesWinHeight,
+                  categoriesWinWidth, (players * 3 + 1) + categoriesWinHeight,
+                  55 + categoriesWinWidth);
+              break;
+    }
+    wprintw(win, "Enter name of player %d\n", i + 1);
     wrefresh(win);
     nocbreak();
     echo();
@@ -462,8 +541,9 @@ int main(int argc, char **argv){
   cbreak();
   startGame();
   delwin(win);
-  endwin();
   for(int i = 0; i < players; i++){
     free(names[i]);
+    delwin(categoriesWins[i]);
   }
+  endwin();
 }
